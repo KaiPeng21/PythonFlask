@@ -35,7 +35,18 @@ def example1():
 def example2():
     return "This is example2. The url for example1 is " + url_for('example1')
 
-
+# P1-4 Debug:
+# Command out the first return statement and uncommand the second return statement.
+# This will cause an error because value is a type of int.
+# The browser will display the traceback error if 'app.debug' is True
+# and only shows "Internal Server Error" if 'app.debug' is False
+# app.debug should not be True for the final end product.
+@app.route('/example3/<int:value>')
+def example3(value):
+    return 'This statement will not cause an error ' + str(value)
+    #return 'This statement will cause an error because I did not perform a str typecast ' + value
+    
 if __name__ == '__main__':
+    # P1-4 Debug:
     app.debug = True
     app.run()
