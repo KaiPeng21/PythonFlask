@@ -43,7 +43,7 @@ if __name__ == '__main__':
 ```
 
 Run your hello world script and 
-enter ** localhost:5000 ** in your browser.
+enter **localhost:5000** in your browser.
 
 
 ## Hello World
