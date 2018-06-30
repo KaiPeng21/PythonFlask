@@ -1,0 +1,5 @@
+Flask<0.13
+flask-sqlalchemy
+pymysql
+
+
