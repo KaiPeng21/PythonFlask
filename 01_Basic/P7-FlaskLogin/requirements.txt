@@ -1,0 +1,7 @@
+Flask<0.13
+flask-login
+flask-sqlalchemy
+pymysql
+flask-bcrypt
+
+
