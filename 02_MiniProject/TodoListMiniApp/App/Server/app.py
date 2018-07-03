@@ -1,7 +1,8 @@
-from flask import Flask, request
+from flask import Flask, request, jsonify
 from flask_restful import Resource, Api
 from flask_sqlalchemy import SQLAlchemy
 
+import json
 import datetime
 
 import config
@@ -24,9 +25,13 @@ class TaskTable(db.Model):
 
     def __repr__(self):
         return '<TaskTable id=%i title=%s>' % (self.id, self.title)
+
+    @staticmethod
+    def getColumns():
+        return [column.key for column in TaskTable.__table__.columns]
         
     def toJSON(self):
-        return {'id' : self.id, 'title' : self.title, 'description' : self.description, 'complete' : self.complete, 'add-time' : self.add_time}
+        return {'id' : self.id, 'title' : self.title, 'description' : self.description, 'complete' : self.complete, 'add_time' : str(self.add_time)}
 
 
 # A Testing REST API
@@ -49,16 +54,41 @@ class Test(Resource):
 #   }
 #
 class Task(Resource):
+    # Getting Task Data From database
     def get(self):
-        all_tasks = list(map(lambda x: x.toJSON(), TaskTable.query.all()))
-        return {'All-Tasks' : all_tasks}
-    
-    def post(self):
-        return {'Test' : 'Testing'}
+        # json received from get request
+        receive = request.get_json()
         
+
+        all_tasks = list(map(lambda x: x.toJSON(), TaskTable.query.all()))
+        return {'Tasks' : all_tasks}
+    
+    # Adding Task Data To Database
+    def post(self):
+        # json received from post request
+        receive = request.get_json()
+
+        # filter the received json to ensure that only the valid info can be added to the database
+        valid_receive_dict = {}
+        for key, value in receive.items():
+            if key in ['title', 'description', 'complete']:
+                valid_receive_dict[key] = value
+        
+        # add received json to database
+        if len(valid_receive_dict) > 0:
+            valid_receive_dict['add_time'] = str(datetime.datetime.now())
+            signature = TaskTable(**valid_receive_dict)
+            db.session.add(signature)
+            db.session.commit()
+
+            return {'Success' : True, 'Inserted-Data' : signature.toJSON()}
+        
+        return {'Success' : False, 'Message' : 'No valid data was sent from the post request'}
 
 api.add_resource(Test, '/')
 api.add_resource(Task, '/task')
 
 if __name__ == "__main__":
     app.run(debug=True, port=8080)
+
+    
