@@ -2,7 +2,6 @@ from flask import Flask, request, jsonify
 from flask_restful import Resource, Api
 from flask_sqlalchemy import SQLAlchemy
 
-import json
 import datetime
 
 import config
@@ -29,6 +28,10 @@ class TaskTable(db.Model):
     @staticmethod
     def getColumns():
         return [column.key for column in TaskTable.__table__.columns]
+
+    @staticmethod
+    def getEditableColumns():
+        return [column.key for column in TaskTable.__table__.columns if column.key != 'id' and column.key != 'add_time']
         
     def toJSON(self):
         return {'id' : self.id, 'title' : self.title, 'description' : self.description, 'complete' : self.complete, 'add_time' : str(self.add_time)}
@@ -53,13 +56,21 @@ class Test(Resource):
 #       'add-time' : 'datetime'
 #   }
 #
+
 class Task(Resource):
     # Getting Task Data From database
     def get(self):
         # json received from get request
         receive = request.get_json()
         
-
+        # filter the query data
+        if receive is not None:
+            valid_receive_dict = {key : value for key, value in receive.items() if key in TaskTable.getColumns()}
+            if len(valid_receive_dict) > 0:
+                filtered_tasks = list(map(lambda x: x.toJSON(), TaskTable.query.filter_by(**valid_receive_dict)))
+                return {'Tasks' : filtered_tasks}
+        
+        # no valid data was sent from the get request, no need to filter the data
         all_tasks = list(map(lambda x: x.toJSON(), TaskTable.query.all()))
         return {'Tasks' : all_tasks}
     
@@ -69,10 +80,7 @@ class Task(Resource):
         receive = request.get_json()
 
         # filter the received json to ensure that only the valid info can be added to the database
-        valid_receive_dict = {}
-        for key, value in receive.items():
-            if key in ['title', 'description', 'complete']:
-                valid_receive_dict[key] = value
+        valid_receive_dict = {key : value for key, value in receive.items() if key in TaskTable.getEditableColumns()}
         
         # add received json to database
         if len(valid_receive_dict) > 0:
@@ -84,6 +92,44 @@ class Task(Resource):
             return {'Success' : True, 'Inserted-Data' : signature.toJSON()}
         
         return {'Success' : False, 'Message' : 'No valid data was sent from the post request'}
+
+    # Modifying Task Data To Database, using id as primary key
+    def put(self):
+        # json received from put request
+        receive = request.get_json()
+
+        if receive is None or 'id' not in receive.keys():
+            return {'Success' : False, 'Message' : 'Missing key "id" from the put request'}
+
+        # filter the received json to ensure that only the valid info can be added to the database
+        valid_receive_dict = {key : value for key, value in receive.items() if key in TaskTable.getEditableColumns()}
+        if len(valid_receive_dict) == 0:
+            return {'Success' : False, 'Message' : 'Missing updating parameters from the put request'}
+
+        # query and update the task table
+        updated_count = TaskTable.query.filter_by(id=receive['id']).update(valid_receive_dict)
+        if updated_count == 0:        
+            return {'Success' : False, 'Message' : 'There is no task data where id = %i ' % receive['id']}
+
+        db.session.commit()
+
+        task_table = list(map(lambda x: x.toJSON(), TaskTable.query.filter_by(id=receive['id'])))
+
+        return {'Success' : True, 'Modified-Data' : task_table}
+
+    def delete(self):
+        # json received from delete request
+        receive = request.get_json()
+
+        if receive is None or 'id' not in receive.keys():
+            return {'Success' : False, 'Message' : 'Missing key "id" from the delete request'}
+        
+        TaskTable.query.filter_by(id=receive['id']).delete()
+        db.session.commit()
+
+        return {'Success' : True}
+
+
 
 api.add_resource(Test, '/')
 api.add_resource(Task, '/task')
